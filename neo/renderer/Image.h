@@ -215,7 +215,7 @@ public:
 	int			BitsForInternalFormat( int internalFormat ) const;
 	void		UploadCompressedNormalMap( int width, int height, const byte *rgba, int mipLevel );
 	GLenum		SelectInternalFormat( const byte **dataPtrs, int numDataPtrs, int width, int height,
-									 textureDepth_t minimumDepth, bool *monochromeResult ) const;
+									 textureDepth_t minimumDepth ) const;
 	void		ImageProgramStringToCompressedFileName( const char *imageProg, char *fileName ) const;
 	int			NumLevelsForImageSize( int width, int height ) const;
 
@@ -246,7 +246,7 @@ public:
 	bool				levelLoadReferenced;	// for determining if it needs to be purged
 	bool				precompressedFile;		// true when it was loaded from a .d3t file
 	bool				defaulted;				// true if the default image was generated because a file couldn't be loaded
-	bool				isMonochrome;			// so the NV20 path can use a reduced pass count
+
 	ID_TIME_T				timestamp;				// the most recent of all images used in creation, for reloadImages command
 
 	int					imageHash;				// for identical-image checking
@@ -292,7 +292,6 @@ ID_INLINE idImage::idImage() {
 	internalFormat = 0;
 	cacheUsagePrev = cacheUsageNext = NULL;
 	hashNext = NULL;
-	isMonochrome = false;
 	refCount = 0;
 }
 
@@ -418,6 +417,14 @@ public:
 	idImage *			specularTableImage;			// 1D intensity texture with our specular function
 	idImage *			specular2DTableImage;		// 2D intensity texture with our specular function with variable specularity
 	idImage *			borderClampImage;			// white inside, black outside
+	idImage *			currentDepthImage; // ink stuff
+	// rebb experimental
+	idImage *			currentGlowImage;
+	// glow related
+	idImage *			glowImage512;
+	idImage *			glowImage256;
+	idImage *			glowImage128;
+	//
 
 	//--------------------------------------------------------
 
@@ -487,9 +494,9 @@ IMAGEFILES
 ====================================================================
 */
 
-void R_LoadImage( const char *name, byte **pic, int *width, int *height, ID_TIME_T *timestamp, bool makePowerOf2 );
+void R_LoadImage( const char *name, byte **pic, unsigned int *width, unsigned int *height, ID_TIME_T *timestamp, bool makePowerOf2 );
 // pic is in top to bottom raster format
-bool R_LoadCubeImages( const char *cname, cubeFiles_t extensions, byte *pic[6], int *size, ID_TIME_T *timestamp );
+bool R_LoadCubeImages( const char *cname, cubeFiles_t extensions, byte *pic[6], unsigned int *size, ID_TIME_T *timestamp );
 
 /*
 ====================================================================
@@ -499,7 +506,7 @@ IMAGEPROGRAM
 ====================================================================
 */
 
-void R_LoadImageProgram( const char *name, byte **pic, int *width, int *height, ID_TIME_T *timestamp, textureDepth_t *depth = NULL );
+void R_LoadImageProgram( const char *name, byte **pic, unsigned int *width, unsigned int *height, ID_TIME_T *timestamp, textureDepth_t *depth = NULL );
 const char *R_ParsePastImageProgram( idLexer &src );
 
 #endif

@@ -40,10 +40,7 @@ If you have questions concerning this license or the applicable additional terms
 #include <mmreg.h>
 #include <objbase.h>
 
-#include <GL/gl.h>
-
 #include "framework/CVarSystem.h"
-#include "renderer/wglext.h"		// windows OpenGL extensions
 #include "sys/sys_public.h"
 
 #define	WINDOW_STYLE	(WS_OVERLAPPED|WS_BORDER|WS_CAPTION|WS_VISIBLE | WS_THICKFRAME)

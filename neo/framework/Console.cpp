@@ -32,6 +32,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "framework/BuildVersion.h"
 #include "framework/CVarSystem.h"
 #include "framework/Session.h"
+#include "framework/Session_local.h"
 #include "framework/EditField.h"
 #include "framework/KeyInput.h"
 #include "framework/EventLoop.h"
@@ -39,6 +40,10 @@ If you have questions concerning this license or the applicable additional terms
 #include "sound/sound.h"
 
 #include "framework/Console.h"
+
+#ifdef ID_ALLOW_TOOLS
+#include "tools/edit_public.h"
+#endif
 
 void SCR_DrawTextLeftAlign( float &y, const char *text, ... ) id_attribute((format(printf,2,3)));
 void SCR_DrawTextRightAlign( float &y, const char *text, ... ) id_attribute((format(printf,2,3)));
@@ -69,6 +74,10 @@ public:
 
 	void				Dump( const char *toFile );
 	void				Clear();
+
+	// persistent console history
+	virtual void		SaveHistory();
+	virtual void		LoadHistory();
 
 	//============================
 
@@ -189,11 +198,16 @@ SCR_DrawFPS
 ==================
 */
 #define	FPS_FRAMES	4
+static int  min_TimeMS = 9999999;
+static int  max_TimeMS = 0;
+static bool updateMaxMS = false;
+
 float SCR_DrawFPS( float y ) {
 	char		*s;
 	int			w;
 	static int	previousTimes[FPS_FRAMES];
 	static int	index;
+	static int lastindex = 0;
 	int		i, total;
 	int		fps;
 	static	int	previous;
@@ -222,10 +236,41 @@ float SCR_DrawFPS( float y ) {
 		s = va( "%ifps", fps );
 		w = strlen( s ) * BIGCHAR_WIDTH;
 
-		renderSystem->DrawBigStringExt( 635 - w, idMath::FtoiFast( y ) + 2, s, colorWhite, true, localConsole.charSetShader);
+//		renderSystem->DrawBigStringExt( 635 - w, idMath::FtoiFast( y ) + 2, s, colorWhite, true, localConsole.charSetShader);
+// hi-def GUI patch starts
+		renderSystem->DrawBigStringExt( (SCREEN_WIDTH - 5) - w, idMath::FtoiFast( y ) + 2, s, colorWhite, true, localConsole.charSetShader);
+// hi-def GUI patch ends
 	}
 
-	return y + BIGCHAR_HEIGHT + 4;
+	if(sessLocal.mapSpawned)
+	{
+		// Update frame ms timers:
+		if( frameTime < min_TimeMS)
+			min_TimeMS =frameTime ;
+		if(updateMaxMS)
+		{
+			if(frameTime < 100000)
+			{
+				if( max_TimeMS < frameTime)
+					max_TimeMS  = frameTime;
+			}
+		} else {
+		if(frameTime <100000 && lastindex < index)
+			updateMaxMS = true;
+		}
+		s = va( "Min %i ms Max %i ms", min_TimeMS, max_TimeMS  );
+		w = strlen( s ) * SMALLCHAR_WIDTH;
+		renderSystem->DrawSmallStringExt( (SCREEN_WIDTH - 5) - w, idMath::FtoiFast( y ) + 2 +  BIGCHAR_HEIGHT + 4,s, colorWhite, true, localConsole.charSetShader);
+		// assume that the first fame where the milliseconds is under 10k is next possible max.
+
+	} else {
+		min_TimeMS  = 99999999;
+		max_TimeMS  = 0;
+		updateMaxMS = false;
+		// Ignore next 10 frames
+		lastindex = index+10;
+	}
+	return y + BIGCHAR_HEIGHT + 8 + SMALLCHAR_HEIGHT;
 }
 
 /*
@@ -516,6 +561,40 @@ void idConsoleLocal::Dump( const char *fileName ) {
 	fileSystem->CloseFile( f );
 }
 
+// persistent console history begins
+void idConsoleLocal::SaveHistory() {
+	idFile *f = fileSystem->OpenFileWrite( "consolehistory.dat" );
+	for ( int i=0; i < COMMAND_HISTORY; ++i ) {
+		// make sure the history is in the right order
+		int line = (nextHistoryLine + i) % COMMAND_HISTORY;
+		const char *s = historyEditLines[line].GetBuffer();
+		if ( s && s[0] ) {
+			f->WriteString(s);
+		}
+	}
+	fileSystem->CloseFile(f);
+}
+
+void idConsoleLocal::LoadHistory() {
+	idFile *f = fileSystem->OpenFileRead( "consolehistory.dat" );
+	if ( f == NULL ) // file doesn't exist
+		return;
+
+	historyLine = 0;
+	idStr tmp;
+	for ( int i=0; i < COMMAND_HISTORY; ++i ) {
+		if ( f->Tell() >= f->Length() ) {
+			break; // EOF is reached
+		}
+		f->ReadString(tmp);
+		historyEditLines[i].SetBuffer(tmp.c_str());
+		++historyLine;
+	}
+	nextHistoryLine = historyLine;
+	fileSystem->CloseFile(f);
+}
+// persistent console history ends
+
 /*
 ================
 idConsoleLocal::PageUp
@@ -596,10 +675,25 @@ void idConsoleLocal::KeyDownEvent( int key ) {
 		cmdSystem->BufferCommandText( CMD_EXEC_APPEND, consoleField.GetBuffer() );	// valid command
 		cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "\n" );
 
-		// copy line to history buffer
+		/* // copy line to history buffer
 		historyEditLines[nextHistoryLine % COMMAND_HISTORY] = consoleField;
 		nextHistoryLine++;
+		historyLine = nextHistoryLine; */
+		
+		// persistent console history fix begins 
+		
+		// copy line to history buffer, if it isn't the same as the last command
+		if ( idStr::Cmp( consoleField.GetBuffer(),
+		                 historyEditLines[(nextHistoryLine + COMMAND_HISTORY - 1) % COMMAND_HISTORY].GetBuffer()) != 0 )
+		{
+			historyEditLines[nextHistoryLine % COMMAND_HISTORY] = consoleField;
+			nextHistoryLine++;			
+		}
 		historyLine = nextHistoryLine;
+		// clear the next line from old garbage, else the oldest history entry turns up when pressing DOWN
+		historyEditLines[nextHistoryLine % COMMAND_HISTORY].Clear();
+
+		// persistent console history fix ends
 
 		consoleField.Clear();
 		consoleField.SetWidthInChars( LINE_WIDTH );
@@ -1195,3 +1289,4 @@ void	idConsoleLocal::Draw( bool forceFullScreen ) {
 		y = SCR_DrawSoundDecoders( y );
 	}
 }
+

@@ -331,11 +331,6 @@ static progDef_t	progs[MAX_GLPROGS] = {
 	{ GL_VERTEX_PROGRAM_ARB, VPROG_AMBIENT, "ambientLight.vfp" },
 	{ GL_FRAGMENT_PROGRAM_ARB, FPROG_AMBIENT, "ambientLight.vfp" },
 	{ GL_VERTEX_PROGRAM_ARB, VPROG_STENCIL_SHADOW, "shadow.vp" },
-	{ GL_VERTEX_PROGRAM_ARB, VPROG_R200_INTERACTION, "R200_interaction.vp" },
-	{ GL_VERTEX_PROGRAM_ARB, VPROG_NV20_BUMP_AND_LIGHT, "nv20_bumpAndLight.vp" },
-	{ GL_VERTEX_PROGRAM_ARB, VPROG_NV20_DIFFUSE_COLOR, "nv20_diffuseColor.vp" },
-	{ GL_VERTEX_PROGRAM_ARB, VPROG_NV20_SPECULAR_COLOR, "nv20_specularColor.vp" },
-	{ GL_VERTEX_PROGRAM_ARB, VPROG_NV20_DIFFUSE_AND_SPECULAR_COLOR, "nv20_diffuseAndSpecularColor.vp" },
 	{ GL_VERTEX_PROGRAM_ARB, VPROG_ENVIRONMENT, "environment.vfp" },
 	{ GL_FRAGMENT_PROGRAM_ARB, FPROG_ENVIRONMENT, "environment.vfp" },
 	{ GL_VERTEX_PROGRAM_ARB, VPROG_GLASSWARP, "arbVP_glasswarp.txt" },
@@ -496,7 +491,6 @@ void R_ReloadARBPrograms_f( const idCmdArgs &args ) {
 	for ( i = 0 ; progs[i].name[0] ; i++ ) {
 		R_LoadARBProgram( i );
 	}
-	common->Printf( "-------------------------------\n" );
 }
 
 /*
@@ -508,7 +502,7 @@ R_ARB2_Init
 void R_ARB2_Init( void ) {
 	glConfig.allowARB2Path = false;
 
-	common->Printf( "---------- R_ARB2_Init ----------\n" );
+	common->Printf( "ARB2 renderer: " );
 
 	if ( !glConfig.ARBVertexProgramAvailable || !glConfig.ARBFragmentProgramAvailable ) {
 		common->Printf( "Not available.\n" );
@@ -516,8 +510,6 @@ void R_ARB2_Init( void ) {
 	}
 
 	common->Printf( "Available.\n" );
-
-	common->Printf( "---------------------------------\n" );
 
 	glConfig.allowARB2Path = true;
 }

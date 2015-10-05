@@ -120,6 +120,7 @@ const idEventDef EV_StartFx( "startFx", "s" );
 const idEventDef EV_HasFunction( "hasFunction", "s", 'd' );
 const idEventDef EV_CallFunction( "callFunction", "s" );
 const idEventDef EV_SetNeverDormant( "setNeverDormant", "d" );
+
 #ifdef _D3XP
 const idEventDef EV_SetGui ( "setGui", "ds" );
 const idEventDef EV_PrecacheGui ( "precacheGui", "s" );
@@ -194,6 +195,7 @@ ABSTRACT_DECLARATION( idClass, idEntity )
 	EVENT( EV_HasFunction,			idEntity::Event_HasFunction )
 	EVENT( EV_CallFunction,			idEntity::Event_CallFunction )
 	EVENT( EV_SetNeverDormant,		idEntity::Event_SetNeverDormant )
+	
 #ifdef _D3XP
 	EVENT( EV_SetGui,				idEntity::Event_SetGui )
 	EVENT( EV_PrecacheGui,			idEntity::Event_PrecacheGui )
@@ -2632,6 +2634,7 @@ bool idEntity::RunPhysics( void ) {
 	idEntity *	part, *blockedPart, *blockingEntity;
 	bool		moved;
 
+	blockingEntity =NULL;	// ########### SR - fix warning
 	// don't run physics if not enabled
 	if ( !( thinkFlags & TH_PHYSICS ) ) {
 		// however do update any animation controllers
@@ -3257,6 +3260,32 @@ void idEntity::DeconstructScriptObject( void ) {
 		delete thread;
 	}
 }
+
+
+// ####################################### SR
+
+/*
+================
+idEntity::RunScriptFunc
+================
+*/
+void idEntity::RunScriptFunc( const char *name ) {
+	const function_t *func;
+	
+	if ( scriptObject.HasObject() ) {
+		func = scriptObject.GetFunction( name );
+		if ( func ) {
+			idThread *thread = new idThread();
+			thread->CallFunction( this, func, true );
+			thread->DelayedStart( 0 );
+		}
+	}
+}
+
+// ####################################### END SR
+
+
+
 
 /*
 ================
@@ -4208,6 +4237,21 @@ void idEntity::Event_FadeSound( int channel, float to, float over ) {
 		refSound.referenceSound->FadeSound( channel, to, over );
 	}
 }
+
+// music volume control begins
+/*
+================
+idEntity::SetMusicVolume
+================
+*/
+void idEntity::SetMusicVolume( int channel, float to, float over ) 
+{
+	if ( spawnArgs.GetBool( "s_bgmusic" ) )
+	{
+		Event_FadeSound( channel, to, over );
+	}
+}
+// music volume control ends
 
 /*
 ================

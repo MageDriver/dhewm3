@@ -252,6 +252,13 @@ void idGameLocal::Clear( void ) {
 	savedEventQueue.Init();
 
 	memset( lagometer, 0, sizeof( lagometer ) );
+
+	//Portal sky begins
+	portalSkyEnt			= NULL;
+	portalSkyActive			= false;
+	playerOldEyePos.Zero();			 
+	globalPortalSky			= false;
+	//Portal sky begins
 }
 
 /*
@@ -282,7 +289,7 @@ void idGameLocal::Init( void ) {
 
 #endif
 
-	Printf( "--------- Initializing Game ----------\n" );
+	Printf( "----- Initializing Game -----\n" );
 	Printf( "gamename: %s\n", GAME_VERSION );
 	Printf( "gamedate: %s\n", __DATE__ );
 
@@ -330,8 +337,6 @@ void idGameLocal::Init( void ) {
 	gamestate = GAMESTATE_NOMAP;
 
 	Printf( "...%d aas types\n", aasList.Num() );
-	Printf( "game initialized.\n" );
-	Printf( "--------------------------------------\n" );
 }
 
 /*
@@ -347,7 +352,7 @@ void idGameLocal::Shutdown( void ) {
 		return;
 	}
 
-	Printf( "------------ Game Shutdown -----------\n" );
+	Printf( "----- Game Shutdown -----\n" );
 
 	mpGame.Shutdown();
 
@@ -391,8 +396,6 @@ void idGameLocal::Shutdown( void ) {
 
 	// shut down the animation manager
 	animationLib.Shutdown();
-
-	Printf( "--------------------------------------\n" );
 
 #ifdef GAME_DLL
 
@@ -539,6 +542,16 @@ void idGameLocal::SaveGame( idFile *f ) {
 	savegame.WriteInt( realClientTime );
 	savegame.WriteBool( isNewFrame );
 	savegame.WriteFloat( clientSmoothing );
+
+	//Portal sky begins
+	portalSkyEnt.Save( &savegame );
+	savegame.WriteBool( portalSkyActive );
+	savegame.WriteBool( globalPortalSky );		
+	savegame.WriteInt( currentPortalSkyType );	
+	savegame.WriteVec3( playerOldEyePos );		
+	savegame.WriteVec3( portalSkyGlobalOrigin );	
+	savegame.WriteVec3( portalSkyOrigin );		
+	//Portal sky ends
 
 	savegame.WriteBool( mapCycleLoaded );
 	savegame.WriteInt( spawnCount );
@@ -910,6 +923,13 @@ void idGameLocal::LoadMap( const char *mapName, int randseed ) {
 	sessionCommand = "";
 	nextGibTime		= 0;
 
+	//Portal sky begins
+	portalSkyEnt			= NULL;
+	portalSkyActive			= false;
+	playerOldEyePos.Zero();			
+	globalPortalSky			= false;
+	//Portal sky ends
+
 	vacuumAreaNum = -1;		// if an info_vacuum is spawned, it will set this
 
 	if ( !editEntities ) {
@@ -955,7 +975,7 @@ idGameLocal::LocalMapRestart
 void idGameLocal::LocalMapRestart( ) {
 	int i, latchSpawnCount;
 
-	Printf( "----------- Game Map Restart ------------\n" );
+	Printf( "----- Game Map Restart -----\n" );
 
 	gamestate = GAMESTATE_SHUTDOWN;
 
@@ -1003,8 +1023,6 @@ void idGameLocal::LocalMapRestart( ) {
 	}
 
 	gamestate = GAMESTATE_ACTIVE;
-
-	Printf( "--------------------------------------\n" );
 }
 
 /*
@@ -1177,7 +1195,7 @@ void idGameLocal::InitFromNewMap( const char *mapName, idRenderWorld *renderWorl
 		MapShutdown();
 	}
 
-	Printf( "----------- Game Map Init ------------\n" );
+	Printf( "----- Game Map Init -----\n" );
 
 	gamestate = GAMESTATE_STARTUP;
 
@@ -1198,8 +1216,6 @@ void idGameLocal::InitFromNewMap( const char *mapName, idRenderWorld *renderWorl
 	animationLib.FlushUnusedAnims();
 
 	gamestate = GAMESTATE_ACTIVE;
-
-	Printf( "--------------------------------------\n" );
 }
 
 /*
@@ -1217,7 +1233,7 @@ bool idGameLocal::InitFromSaveGame( const char *mapName, idRenderWorld *renderWo
 		MapShutdown();
 	}
 
-	Printf( "------- Game Map Init SaveGame -------\n" );
+	Printf( "----- Game Map Init SaveGame -----\n" );
 
 	gamestate = GAMESTATE_STARTUP;
 
@@ -1361,6 +1377,16 @@ bool idGameLocal::InitFromSaveGame( const char *mapName, idRenderWorld *renderWo
 	savegame.ReadBool( isNewFrame );
 	savegame.ReadFloat( clientSmoothing );
 
+	//Portal sky begins
+	portalSkyEnt.Restore( &savegame );
+	savegame.ReadBool( portalSkyActive );
+	savegame.ReadBool( globalPortalSky );
+	savegame.ReadInt( currentPortalSkyType );
+	savegame.ReadVec3( playerOldEyePos );
+	savegame.ReadVec3( portalSkyGlobalOrigin );
+	savegame.ReadVec3( portalSkyOrigin );
+	//Portal sky ends
+
 	savegame.ReadBool( mapCycleLoaded );
 	savegame.ReadInt( spawnCount );
 
@@ -1418,8 +1444,6 @@ bool idGameLocal::InitFromSaveGame( const char *mapName, idRenderWorld *renderWo
 
 	gamestate = GAMESTATE_ACTIVE;
 
-	Printf( "--------------------------------------\n" );
-
 	return true;
 }
 
@@ -1469,7 +1493,7 @@ idGameLocal::MapShutdown
 ============
 */
 void idGameLocal::MapShutdown( void ) {
-	Printf( "--------- Game Map Shutdown ----------\n" );
+	Printf( "----- Game Map Shutdown -----\n" );
 
 	gamestate = GAMESTATE_SHUTDOWN;
 
@@ -1507,8 +1531,6 @@ void idGameLocal::MapShutdown( void ) {
 	gameSoundWorld = NULL;
 
 	gamestate = GAMESTATE_NOMAP;
-
-	Printf( "--------------------------------------\n" );
 }
 
 /*
@@ -2011,6 +2033,24 @@ void idGameLocal::SetupPlayerPVS( void ) {
 			pvs.FreeCurrentPVS( otherPVS );
 			playerConnectedAreas = newPVS;
 		}
+		//Portal sky begins
+		// if portalSky is preset, then merge into pvs so we get rotating brushes, etc
+		if ( portalSkyEnt.GetEntity() ) {
+			idEntity *skyEnt = portalSkyEnt.GetEntity();
+
+			otherPVS = pvs.SetupCurrentPVS( skyEnt->GetPVSAreas(), skyEnt->GetNumPVSAreas() );
+			newPVS = pvs.MergeCurrentPVS( playerPVS, otherPVS );
+			pvs.FreeCurrentPVS( playerPVS );
+			pvs.FreeCurrentPVS( otherPVS );
+			playerPVS = newPVS;
+
+			otherPVS = pvs.SetupCurrentPVS( skyEnt->GetPVSAreas(), skyEnt->GetNumPVSAreas() );
+			newPVS = pvs.MergeCurrentPVS( playerConnectedAreas, otherPVS );
+			pvs.FreeCurrentPVS( playerConnectedAreas );
+			pvs.FreeCurrentPVS( otherPVS );
+			playerConnectedAreas = newPVS;
+		}
+		//Portal sky ends
 	}
 }
 
@@ -2392,8 +2432,12 @@ void idGameLocal::CalcFov( float base_fov, float &fov_x, float &fov_y ) const {
 	float	ratio_y;
 
 	// first, calculate the vertical fov based on a 640x480 view
-	x = 640.0f / tan( base_fov / 360.0f * idMath::PI );
-	y = atan2( 480.0f, x );
+//	x = 640.0f / tan( base_fov / 360.0f * idMath::PI );
+//	y = atan2( 480.0f, x );
+// hi-def GUI patch starts
+	x = SCREEN_WIDTH / tan( base_fov / 360.0f * idMath::PI );
+	y = atan2( SCREEN_HEIGHT, x );
+// hi-def GUI patch ends
 	fov_y = y * 360.0f / idMath::PI;
 
 	// FIXME: somehow, this is happening occasionally
@@ -4274,6 +4318,70 @@ idGameLocal::ThrottleUserInfo
 void idGameLocal::ThrottleUserInfo( void ) {
 	mpGame.ThrottleUserInfo();
 }
+
+//Portal sky begins
+
+/*
+=================
+idGameLocal::SetPortalSkyEnt
+=================
+*/
+void idGameLocal::SetPortalSkyEnt( idEntity *ent ) {
+	portalSkyEnt = ent;
+}
+
+/*
+=================
+idGameLocal::IsPortalSkyAcive
+=================
+*/
+bool idGameLocal::IsPortalSkyAcive() {
+	return portalSkyActive;
+}
+
+/*
+=================
+idGameLocal::CheckGlobalPortalSky			--> 7318
+=================
+*/
+bool idGameLocal::CheckGlobalPortalSky() {
+	return globalPortalSky;
+}
+
+/*
+=================
+idGameLocal::SetGlobalPortalSky			--> 7318
+=================
+*/
+void idGameLocal::SetGlobalPortalSky( const char *name ) {
+
+	if ( CheckGlobalPortalSky() ) {
+		Error( "more than one global portalSky:\ndelete them until you have just one.\nportalSky '%s' causes it.", name );
+	}
+	else {
+		globalPortalSky = true;
+	}
+}
+
+/*
+=================
+idGameLocal::SetCurrentPortalSkyType		--> 7318
+=================
+*/
+void idGameLocal::SetCurrentPortalSkyType( int type ) {
+	currentPortalSkyType = type;
+}
+
+/*
+=================
+idGameLocal::GetCurrentPortalSkyType		--> 7318
+=================
+*/
+int idGameLocal::GetCurrentPortalSkyType() {
+	return currentPortalSkyType;
+}
+
+//Portal sky ends
 
 /*
 ===========

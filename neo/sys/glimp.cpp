@@ -33,9 +33,11 @@ If you have questions concerning this license or the applicable additional terms
 #include "framework/Licensee.h"
 
 #include "renderer/tr_local.h"
-#if defined(MACOS_X)
-#include "sys/glimp_ati_fragment_shader.h"
-#elif defined(_WIN32)
+/* #if defined(_WIN32)
+#include "sys/win32/win_local.h"
+#endif */
+#ifdef ID_ALLOW_TOOLS
+// Tools are win32 specific
 #include "sys/win32/win_local.h"
 #endif
 
@@ -116,6 +118,10 @@ bool GLimp_Init(glimpParms_t parms) {
 		int channelcolorbits = 4;
 		if (tcolorbits == 24)
 			channelcolorbits = 8;
+		
+		// icon mod begins: icon in the game's window title bar, when run in windowed mode; 32x32 px 24-bit BMP image
+		SDL_WM_SetIcon(SDL_LoadBMP("icons/steelstorm2.bmp"), NULL);
+		// icon mod ends
 
 		SDL_WM_SetCaption(GAME_NAME, GAME_NAME);
 
@@ -155,6 +161,44 @@ bool GLimp_Init(glimpParms_t parms) {
 		glConfig.isFullscreen = (surf->flags & SDL_FULLSCREEN) == SDL_FULLSCREEN;
 		glConfig.displayFrequency = 0;
 
+#ifdef ID_ALLOW_TOOLS
+		// The tools are Win32 specific.  If building the tools
+		// then we know we are win32 and we have to include this
+		// config to get the editors to work.
+
+		// Get the HWND for later use.
+		SDL_SysWMinfo sdlinfo;
+		SDL_version sdlver;
+		SDL_VERSION(&sdlver);
+		sdlinfo.version = sdlver;
+		SDL_GetWMInfo(&sdlinfo);
+		win32.hWnd = sdlinfo.window;//All this to get the window handle
+		win32.hGLRC = sdlinfo.hglrc;
+
+		PIXELFORMATDESCRIPTOR src = 
+		{
+			sizeof(PIXELFORMATDESCRIPTOR),	// size of this pfd
+			1,								// version number
+			PFD_DRAW_TO_WINDOW |			// support window
+			PFD_SUPPORT_OPENGL |			// support OpenGL
+			PFD_DOUBLEBUFFER,				// double buffered
+			PFD_TYPE_RGBA,					// RGBA type
+			32,								// 32-bit color depth
+			0, 0, 0, 0, 0, 0,				// color bits ignored
+			8,								// 8 bit destination alpha
+			0,								// shift bit ignored
+			0,								// no accumulation buffer
+			0, 0, 0, 0, 					// accum bits ignored
+			24,								// 24-bit z-buffer	
+			8,								// 8-bit stencil buffer
+			0,								// no auxiliary buffer
+			PFD_MAIN_PLANE,					// main layer
+			0,								// reserved
+			0, 0, 0							// layer masks ignored
+		};
+		memcpy(&win32.pfd, &src, sizeof(PIXELFORMATDESCRIPTOR));
+#endif
+
 		break;
 	}
 
@@ -163,26 +207,19 @@ bool GLimp_Init(glimpParms_t parms) {
 		return false;
 	}
 
-	glConfig.wgl_extensions_string = "";
-
-#ifdef _WIN32
-	PFNWGLGETEXTENSIONSSTRINGARBPROC wglGetExtensionsStringARB = (PFNWGLGETEXTENSIONSSTRINGARBPROC)GLimp_ExtensionPointer("wglGetExtensionsStringARB");
-
-	if (wglGetExtensionsStringARB)
-		glConfig.wgl_extensions_string = (const char *)wglGetExtensionsStringARB(wglGetCurrentDC());
-
+/* #ifdef _WIN32
 	// the editors still rely on these vars
 	SDL_SysWMinfo info;
 	SDL_VERSION(&info.version);
 
 	if (SDL_GetWMInfo(&info)) {
-		win32.hDC = wglGetCurrentDC();
+//		win32.hDC = wglGetCurrentDC();
 		win32.hGLRC = info.hglrc;
 	}
 
 	win32.pixelformat = GetPixelFormat(win32.hDC);
 	DescribePixelFormat(win32.hDC, win32.pixelformat, sizeof(win32.pfd), &win32.pfd);
-#endif
+#endif */
 
 	return true;
 }
@@ -194,6 +231,7 @@ GLimp_SetScreenParms
 */
 bool GLimp_SetScreenParms(glimpParms_t parms) {
 	common->DPrintf("TODO: GLimp_ActivateContext\n");
+
 	return true;
 }
 
@@ -250,13 +288,6 @@ GLimp_ExtensionPointer
 */
 GLExtension_t GLimp_ExtensionPointer(const char *name) {
 	assert(SDL_WasInit(SDL_INIT_VIDEO));
-
-#ifdef MACOS_X
-	// special case for ATI_fragment_shader calls to map to ATI_text_fragment_shader routines
-	GLExtension_t res = GLimp_ExtensionPointer_ATI_fragment_shader(name);
-	if (res)
-		return res;
-#endif
 
 	return (GLExtension_t)SDL_GL_GetProcAddress(name);
 }

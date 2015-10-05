@@ -29,6 +29,13 @@ If you have questions concerning this license or the applicable additional terms
 #ifndef __SND_LOCAL_H__
 #define __SND_LOCAL_H__
 
+#ifdef ID_DEDICATED
+// stub-only mode: AL_API and ALC_API shouldn't refer to any dll-stuff
+// because the implemenations are in openal_stub.cpp
+// this is ensured by defining AL_LIBTYPE_STATIC before including the AL headers
+#define AL_LIBTYPE_STATIC
+#endif
+
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <AL/alext.h>
@@ -765,8 +772,6 @@ public:
 	static idCVar			s_force22kHz;
 	static idCVar			s_clipVolumes;
 	static idCVar			s_realTimeDecoding;
-	static idCVar			s_libOpenAL;
-	static idCVar			s_useOpenAL;
 	static idCVar			s_useEAXReverb;
 	static idCVar			s_decompressionLimit;
 

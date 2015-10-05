@@ -29,6 +29,7 @@ If you have questions concerning this license or the applicable additional terms
 #include "sys/platform.h"
 #include "tools/compilers/dmap/dmap.h"
 
+/*
 #ifdef WIN32
 #include "sys/win32/win_local.h"
 
@@ -267,6 +268,7 @@ void GLS_EndScene (void)
 	draw_socket = 0;
 }
 #else
+*/
 void Draw_ClearWindow( void ) {
 }
 
@@ -286,4 +288,4 @@ void GLS_EndScene (void)
 {
 }
 
-#endif
+//#endif

@@ -48,7 +48,9 @@ If you have questions concerning this license or the applicable additional terms
 #include "renderer/RenderSystem.h"
 #include "tools/compilers/compiler_public.h"
 #include "tools/compilers/aas/AASFileManager.h"
-
+#ifdef ID_ALLOW_TOOLS
+#include "tools/edit_public.h"
+#endif
 #include "framework/Common.h"
 
 #define	MAX_PRINT_MSG_SIZE	4096
@@ -186,6 +188,7 @@ private:
 	void						DumpWarnings( void );
 	void						SingleAsyncTic( void );
 	void						LoadGameDLL( void );
+	void						LoadGameDLLbyName( const char *dll, idStr& s ); // allow to load mod folder even if it has no corresponding dll/so
 	void						UnloadGameDLL( void );
 	void						PrintLoadingMessage( const char *msg );
 	void						FilterLangList( idStrList* list, idStr lang );
@@ -514,7 +517,7 @@ void idCommonLocal::PrintWarnings( void ) {
 
 	warningList.Sort();
 
-	Printf( "------------- Warnings ---------------\n" );
+	Printf( "----- Warnings -----\n" );
 	Printf( "during %s...\n", warningCaption.c_str() );
 
 	for ( i = 0; i < warningList.Num(); i++ ) {
@@ -555,7 +558,7 @@ void idCommonLocal::DumpWarnings( void ) {
 	warningFile = fileSystem->OpenFileWrite( "warnings.txt", "fs_savepath" );
 	if ( warningFile ) {
 
-		warningFile->Printf( "------------- Warnings ---------------\n\n" );
+		warningFile->Printf( "----- Warnings -----\n\n" );
 		warningFile->Printf( "during %s...\n", warningCaption.c_str() );
 		warningList.Sort();
 		for ( i = 0; i < warningList.Num(); i++ ) {
@@ -568,7 +571,7 @@ void idCommonLocal::DumpWarnings( void ) {
 			warningFile->Printf( "\n%d warnings.\n", warningList.Num() );
 		}
 
-		warningFile->Printf( "\n\n-------------- Errors ---------------\n\n" );
+		warningFile->Printf( "\n\n----- Errors -----\n\n" );
 		errorList.Sort();
 		for ( i = 0; i < errorList.Num(); i++ ) {
 			errorList[i].RemoveColors();
@@ -966,7 +969,8 @@ Activates or Deactivates a tool
 */
 void idCommonLocal::ActivateTool( bool active ) {
 	com_editorActive = active;
-	Sys_GrabMouseCursor( !active );
+//	 ** Tools don't need to grab the mouse.  The SDL window grabs and release the mouse when activated.
+//	Sys_GrabMouseCursor( !active );
 }
 
 /*
@@ -1457,23 +1461,10 @@ void Com_ExecMachineSpec_f( const idCmdArgs &args ) {
 	cvarSystem->SetCVarBool( "com_purgeAll", false, CVAR_ARCHIVE );
 	cvarSystem->SetCVarBool( "r_forceLoadImages", false, CVAR_ARCHIVE );
 
-	bool oldCard = false;
-	bool nv10or20 = false;
-	renderSystem->GetCardCaps( oldCard, nv10or20 );
-	if ( oldCard ) {
-		cvarSystem->SetCVarBool( "g_decals", false, CVAR_ARCHIVE );
-		cvarSystem->SetCVarBool( "g_projectileLights", false, CVAR_ARCHIVE );
-		cvarSystem->SetCVarBool( "g_doubleVision", false, CVAR_ARCHIVE );
-		cvarSystem->SetCVarBool( "g_muzzleFlash", false, CVAR_ARCHIVE );
-	} else {
-		cvarSystem->SetCVarBool( "g_decals", true, CVAR_ARCHIVE );
-		cvarSystem->SetCVarBool( "g_projectileLights", true, CVAR_ARCHIVE );
-		cvarSystem->SetCVarBool( "g_doubleVision", true, CVAR_ARCHIVE );
-		cvarSystem->SetCVarBool( "g_muzzleFlash", true, CVAR_ARCHIVE );
-	}
-	if ( nv10or20 ) {
-		cvarSystem->SetCVarInteger( "image_useNormalCompression", 1, CVAR_ARCHIVE );
-	}
+	cvarSystem->SetCVarBool( "g_decals", true, CVAR_ARCHIVE );
+	cvarSystem->SetCVarBool( "g_projectileLights", true, CVAR_ARCHIVE );
+	cvarSystem->SetCVarBool( "g_doubleVision", true, CVAR_ARCHIVE );
+	cvarSystem->SetCVarBool( "g_muzzleFlash", true, CVAR_ARCHIVE );
 
 #if MACOS_X
 	// On low settings, G4 systems & 64MB FX5200/NV34 Systems should default shadows off
@@ -1566,7 +1557,7 @@ void idCommonLocal::InitLanguageDict( void ) {
 	//similar to the way pak files work. So you can place english001.lang
 	//to add new strings to the english language dictionary
 	idFileList*	langFiles;
-	langFiles =  fileSystem->ListFilesTree( "strings", ".lang", true );
+	langFiles =  fileSystem->ListFilesTree( "strings", ".langold", true );
 
 	idStrList langList = langFiles->GetList();
 
@@ -1997,7 +1988,7 @@ void Com_LocalizeMaps_f( const idCmdArgs &args ) {
 	}
 
 	idLangDict strTable;
-	idStr filename = va("strings/english%.3i.lang", com_product_lang_ext.GetInteger());
+	idStr filename = va("strings/english%.3i.langold", com_product_lang_ext.GetInteger());
 	if(strTable.Load( filename ) == false) {
 		//This is a new file so set the base index
 		strTable.SetBaseID(com_product_lang_ext.GetInteger()*100000);
@@ -2047,7 +2038,7 @@ void Com_LocalizeGuis_f( const idCmdArgs &args ) {
 
 	idLangDict strTable;
 
-	idStr filename = va("strings/english%.3i.lang", com_product_lang_ext.GetInteger());
+	idStr filename = va("strings/english%.3i.langold", com_product_lang_ext.GetInteger());
 	if(strTable.Load( filename ) == false) {
 		//This is a new file so set the base index
 		strTable.SetBaseID(com_product_lang_ext.GetInteger()*100000);
@@ -2345,7 +2336,7 @@ void idCommonLocal::InitRenderSystem( void ) {
 	}
 
 	renderSystem->InitOpenGL();
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04343" ) );
+	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_00000" ) );
 }
 
 /*
@@ -2360,7 +2351,10 @@ void idCommonLocal::PrintLoadingMessage( const char *msg ) {
 	renderSystem->BeginFrame( renderSystem->GetScreenWidth(), renderSystem->GetScreenHeight() );
 	renderSystem->DrawStretchPic( 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 1, 1, declManager->FindMaterial( "splashScreen" ) );
 	int len = strlen( msg );
-	renderSystem->DrawSmallStringExt( ( 640 - len * SMALLCHAR_WIDTH ) / 2, 410, msg, idVec4( 0.0f, 0.81f, 0.94f, 1.0f ), true, declManager->FindMaterial( "textures/bigchars" ) );
+//	renderSystem->DrawSmallStringExt( ( 640 - len * SMALLCHAR_WIDTH ) / 2, 410, msg, idVec4( 0.0f, 0.81f, 0.94f, 1.0f ), true, declManager->FindMaterial( "textures/bigchars" ) );
+// hi-def GUI patch starts
+	renderSystem->DrawSmallStringExt( ( SCREEN_WIDTH - len * SMALLCHAR_WIDTH ) / 2, SCREEN_HEIGHT - 70, msg, idVec4( 0.0f, 0.81f, 0.94f, 1.0f ), true, declManager->FindMaterial( "textures/bigchars" ) );
+// hi-def GUI patch ends
 	renderSystem->EndFrame( NULL, NULL );
 }
 
@@ -2556,6 +2550,49 @@ void idCommonLocal::Async( void ) {
 
 /*
 =================
+idCommonLocal::LoadGameDLLbyName
+
+Helper for LoadGameDLL() to make it less painfull to try different dll names.
+=================
+*/
+void idCommonLocal::LoadGameDLLbyName( const char *dll, idStr& s ) {
+	s.CapLength(0);
+	// try next to the binary first (build tree)
+	if (Sys_GetPath(PATH_EXE, s)) {
+		// "s = " seems superfluous, but works around g++ 4.7 bug else StripFilename()
+		// (and possibly even CapLength()) seems to be "optimized" away and the string contains garbage
+		s = s.StripFilename();
+		s.AppendPath(dll);
+		gameDLL = sys->DLL_Load(s);
+	}
+
+	#if defined(_WIN32)
+		// then the lib/ dir relative to the binary on windows
+		if (!gameDLL && Sys_GetPath(PATH_EXE, s)) {
+			s.StripFilename();
+			s.AppendPath("lib");
+			s.AppendPath(dll);
+			gameDLL = sys->DLL_Load(s);
+		}
+	#elif defined(MACOS_X)
+		// then the binary dir in the bundle on osx
+		if (!gameDLL && Sys_GetPath(PATH_EXE, s)) {
+			s.StripFilename();
+			s.AppendPath(dll);
+			gameDLL = sys->DLL_Load(s);
+		}
+	#else
+		// then the install folder on *nix
+		if (!gameDLL) {
+			s = BUILD_LIBDIR;
+			s.AppendPath(dll);
+			gameDLL = sys->DLL_Load(s);
+		}
+	#endif
+}
+
+/*
+=================
 idCommonLocal::LoadGameDLL
 =================
 */
@@ -2574,38 +2611,16 @@ void idCommonLocal::LoadGameDLL( void ) {
 		fs_game = BASE_GAMEDIR;
 
 	gameDLL = 0;
+	
 	sys->DLL_GetFileName(fs_game, dll, sizeof(dll));
-
-	// try next to the binary first (build tree)
-	if (Sys_GetPath(PATH_EXE, s)) {
-		s.StripFilename();
-		s.AppendPath(dll);
-		gameDLL = sys->DLL_Load(s);
-	}
-
-#if defined(_WIN32)
-	// then the lib/ dir relative to the binary on windows
-	if (!gameDLL && Sys_GetPath(PATH_EXE, s)) {
-		s.StripFilename();
-		s.AppendPath("lib");
-		s.AppendPath(dll);
-		gameDLL = sys->DLL_Load(s);
-	}
-#elif defined(MACOS_X)
-	// then the binary dir in the bundle on osx
-	if (!gameDLL && Sys_GetPath(PATH_EXE, s)) {
-		s.StripFilename();
-		s.AppendPath(dll);
-		gameDLL = sys->DLL_Load(s);
-	}
-#else
-	// then the install folder on *nix
+	LoadGameDLLbyName(dll, s);
+		
+	// there was no gamelib for this mod, use default one from base game
 	if (!gameDLL) {
-		s = BUILD_LIBDIR;
-		s.AppendPath(dll);
-		gameDLL = sys->DLL_Load(s);
+		common->Warning( "couldn't load mod-specific %s, defaulting to base game's library!", dll );
+		sys->DLL_GetFileName(BASE_GAMEDIR, dll, sizeof(dll));
+		LoadGameDLLbyName(dll, s);	
 	}
-#endif
 
 	if ( !gameDLL ) {
 		common->FatalError( "couldn't load game dynamic library" );
@@ -2697,17 +2712,13 @@ idCommonLocal::SetMachineSpec
 */
 void idCommonLocal::SetMachineSpec( void ) {
 	int sysRam = Sys_GetSystemRam();
-	bool oldCard = false;
-	bool nv10or20 = false;
-
-	renderSystem->GetCardCaps( oldCard, nv10or20 );
 
 	Printf( "Detected\n\t%i MB of System memory\n\n", sysRam );
 
-	if ( sysRam >= 1024 && !oldCard ) {
+	if ( sysRam >= 1024 ) {
 		Printf( "This system qualifies for Ultra quality!\n" );
 		com_machineSpec.SetInteger( 3 );
-	} else if ( sysRam >= 512 && !oldCard ) {
+	} else if ( sysRam >= 512 ) {
 		Printf( "This system qualifies for High quality!\n" );
 		com_machineSpec.SetInteger( 2 );
 	} else if ( sysRam >= 384 ) {
@@ -2782,7 +2793,8 @@ void idCommonLocal::Init( int argc, char **argv ) {
 		idCVar::RegisterStaticVars();
 
 		// print engine version
-		Printf( "%s\n", version.string );
+		SDL_version sdlv = *SDL_Linked_Version();
+		Printf( "%s using SDL v%u.%u.%u\n",	version.string, sdlv.major, sdlv.minor, sdlv.patch );
 
 		// initialize key input/binding, done early so bind command exists
 		idKeyInput::Init();
@@ -2825,8 +2837,6 @@ void idCommonLocal::Init( int argc, char **argv ) {
 			session->StartMenu( true );
 		}
 
-		Printf( "--- Common Initialization Complete ---\n" );
-
 		// print all warnings queued during initialization
 		PrintWarnings();
 
@@ -2838,6 +2848,9 @@ void idCommonLocal::Init( int argc, char **argv ) {
 		console->ClearNotifyLines();
 
 		ClearCommandLine();
+		
+		// load the persistent console history
+		console->LoadHistory();
 
 		com_fullyInitialized = true;
 	}
@@ -2866,6 +2879,9 @@ void idCommonLocal::Shutdown( void ) {
 
 	idAsyncNetwork::server.Kill();
 	idAsyncNetwork::client.Shutdown();
+
+	// save persistent console history
+	console->SaveHistory();
 
 	// game specific shut down
 	ShutdownGame( false );
@@ -2945,7 +2961,7 @@ void idCommonLocal::InitGame( void ) {
 	// initialize string database right off so we can use it for loading messages
 	InitLanguageDict();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04344" ) );
+	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_00001" ) );
 
 	// load the font, etc
 	console->LoadGraphics();
@@ -2953,7 +2969,7 @@ void idCommonLocal::InitGame( void ) {
 	// init journalling, etc
 	eventLoop->Init();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04345" ) );
+	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_00002" ) );
 
 	// exec the startup scripts
 	cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "exec editor.cfg\n" );
@@ -2980,12 +2996,12 @@ void idCommonLocal::InitGame( void ) {
 	// init the user command input code
 	usercmdGen->Init();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04346" ) );
+	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_00003" ) );
 
 	// start the sound system, but don't do any hardware operations yet
 	soundSystem->Init();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04347" ) );
+	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_00004" ) );
 
 	// init async network
 	idAsyncNetwork::Init();
@@ -2999,12 +3015,12 @@ void idCommonLocal::InitGame( void ) {
 		cvarSystem->SetCVarBool( "s_noSound", true );
 	} else {
 		// init OpenGL, which will open a window and connect sound and input hardware
-		PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04348" ) );
+		PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_00005" ) );
 		InitRenderSystem();
 	}
 #endif
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04349" ) );
+	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_00006" ) );
 
 	// initialize the user interfaces
 	uiManager->Init();
@@ -3012,12 +3028,12 @@ void idCommonLocal::InitGame( void ) {
 	// startup the script debugger
 	// DebuggerServerInit();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04350" ) );
+	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_00007" ) );
 
 	// load the game dll
 	LoadGameDLL();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04351" ) );
+	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_00008" ) );
 
 	// init the session
 	session->Init();

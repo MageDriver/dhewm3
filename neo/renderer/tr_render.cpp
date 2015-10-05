@@ -91,16 +91,15 @@ void RB_DrawElementsWithCounters( const srfTriangles_t *tri ) {
 		}
 	}
 
-	if ( tri->indexCache && r_useIndexBuffers.GetBool() ) {
+	if ( tri->indexCache ) {
 		qglDrawElements( GL_TRIANGLES,
 						r_singleTriangle.GetBool() ? 3 : tri->numIndexes,
 						GL_INDEX_TYPE,
 						(int *)vertexCache.Position( tri->indexCache ) );
 		backEnd.pc.c_vboIndexes += tri->numIndexes;
-	} else {
-		if ( r_useIndexBuffers.GetBool() ) {
-			vertexCache.UnbindIndex();
-		}
+	} else {		
+		vertexCache.UnbindIndex();		
+
 		qglDrawElements( GL_TRIANGLES,
 						r_singleTriangle.GetBool() ? 3 : tri->numIndexes,
 						GL_INDEX_TYPE,
@@ -120,16 +119,15 @@ void RB_DrawShadowElementsWithCounters( const srfTriangles_t *tri, int numIndexe
 	backEnd.pc.c_shadowIndexes += numIndexes;
 	backEnd.pc.c_shadowVertexes += tri->numVerts;
 
-	if ( tri->indexCache && r_useIndexBuffers.GetBool() ) {
+	if ( tri->indexCache ) {
 		qglDrawElements( GL_TRIANGLES,
 						r_singleTriangle.GetBool() ? 3 : numIndexes,
 						GL_INDEX_TYPE,
 						(int *)vertexCache.Position( tri->indexCache ) );
 		backEnd.pc.c_vboIndexes += numIndexes;
 	} else {
-		if ( r_useIndexBuffers.GetBool() ) {
-			vertexCache.UnbindIndex();
-		}
+		vertexCache.UnbindIndex();
+		
 		qglDrawElements( GL_TRIANGLES,
 						r_singleTriangle.GetBool() ? 3 : numIndexes,
 						GL_INDEX_TYPE,
@@ -865,7 +863,7 @@ void RB_DrawView( const void *data ) {
 		return;
 	}
 
-	// skip render context sets the wgl context to NULL,
+	// skip render context sets the gl context to NULL,
 	// which should factor out the API cost, under the assumption
 	// that all gl calls just return if the context isn't valid
 	if ( r_skipRenderContext.GetBool() && backEnd.viewDef->viewEntitys ) {

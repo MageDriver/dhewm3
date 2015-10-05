@@ -211,7 +211,7 @@ static pureExclusion_t pureExclusions[] = {
 	{ 0,	0,	NULL,											".pda",		excludeExtension },
 	{ 0,	0,	NULL,											".gui",		excludeExtension },
 	{ 0,	0,	NULL,											".pd",		excludeExtension },
-	{ 0,	0,	NULL,											".lang",	excludeExtension },
+	{ 0,	0,	NULL,											".langold",	excludeExtension },
 	{ 0,	0,	"sound/VO",										".ogg",		excludePathPrefixAndExtension },
 	{ 0,	0,	"sound/VO",										".wav",		excludePathPrefixAndExtension },
 #if	defined DOOM3_PURE_SPECIAL_CASES
@@ -796,7 +796,7 @@ const char *idFileSystemLocal::BuildOSPath( const char *base, const char *game, 
 
 		if ( testPath.HasUpper() ) {
 
-			common->Warning( "Non-portable: path contains uppercase characters: %s", testPath.c_str() );
+			common->DPrintf( "Non-portable: path contains uppercase characters: %s", testPath.c_str() );
 
 			// attempt a fixup on the fly
 			if ( fs_caseSensitiveOS.GetBool() ) {
@@ -1762,7 +1762,7 @@ idModList *idFileSystemLocal::ListMods( void ) {
 	}
 
 	list->mods.Insert( "" );
-	list->descriptions.Insert( "dhewm 3" );
+	list->descriptions.Insert( "Steel Storm 2" );
 
 	assert( list->mods.Num() == list->descriptions.Num() );
 
@@ -2197,7 +2197,7 @@ void idFileSystemLocal::Startup( void ) {
 	pack_t			*pak;
 	int				addon_index;
 
-	common->Printf( "------ Initializing File System ------\n" );
+	common->Printf( "----- Initializing File System -----\n" );
 
 	if ( restartChecksums.Num() ) {
 		common->Printf( "restarting in pure mode with %d pak files\n", restartChecksums.Num() );
@@ -2357,9 +2357,6 @@ void idFileSystemLocal::Startup( void ) {
 
 	// print the current search paths
 	Path_f( idCmdArgs() );
-
-	common->Printf( "file system initialized.\n" );
-	common->Printf( "--------------------------------------\n" );
 }
 
 /*
